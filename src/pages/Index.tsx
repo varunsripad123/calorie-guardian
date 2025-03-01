@@ -17,7 +17,7 @@ const Index = () => {
       <CalorieTracker />
       
       <footer className="mt-16 text-center text-sm text-muted-foreground animate-fade-in">
-        <p>Powered by AI • Made with ♥ by Lovable</p>
+        <p>Powered by AI • Made by Varun Sripad Kota</p>
       </footer>
     </div>
   );
