@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DailyNutrition, UserProfile } from "@/types";
-import { Flame, Beef, Grain, Droplet } from "lucide-react";
+import { Flame, Beef, Cookie, Droplet } from "lucide-react";
 
 interface NutritionSummaryProps {
   nutrition: DailyNutrition;
@@ -97,7 +97,7 @@ export function NutritionSummary({ nutrition, userProfile }: NutritionSummaryPro
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="h-6 w-6 rounded-full bg-amber-50 flex items-center justify-center">
-                  <Grain size={14} className="text-amber-500" />
+                  <Cookie size={14} className="text-amber-500" />
                 </div>
                 <span className="text-sm font-medium">Carbs</span>
               </div>

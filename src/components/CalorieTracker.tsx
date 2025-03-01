@@ -29,6 +29,7 @@ export function CalorieTracker() {
   // Initialize user profile with calculated values
   useEffect(() => {
     const maintenance = calculateMaintenanceCalories({
+      name: userProfile.name,
       weight: userProfile.weight,
       height: userProfile.height,
       age: userProfile.age,
