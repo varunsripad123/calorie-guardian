@@ -1,3 +1,6 @@
+![image](https://github.com/user-attachments/assets/a609bee8-f588-466d-9d40-2a0d89b59946)
+
+
 **Use your preferred IDE**
 
 If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
