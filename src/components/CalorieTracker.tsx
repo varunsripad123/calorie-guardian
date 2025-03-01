@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { FoodInput } from "./FoodInput";
 import { NutritionSummary } from "./NutritionSummary";
@@ -45,15 +44,17 @@ export function CalorieTracker() {
           <>
             <FoodInput onAddFood={handleAddFood} />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <NutritionSummary 
-                nutrition={dailyNutrition} 
-                userProfile={userProfile}
-              />
-              <NutritionistAI 
-                userProfile={userProfile} 
-                dailyNutrition={dailyNutrition}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <div className="md:col-span-2">
+                <NutritionSummary nutrition={dailyNutrition} userProfile={userProfile} />
+              </div>
+              <div>
+                <NutritionistAI 
+                  userProfile={userProfile} 
+                  dailyNutrition={dailyNutrition} 
+                  onAddFoodItem={(item) => setDailyNutrition(prev => addFoodItem(prev, item))}
+                />
+              </div>
             </div>
             
             <CalorieChart 

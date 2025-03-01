@@ -2,21 +2,25 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserProfile, DailyNutrition, NutritionAdvice } from "@/types";
-import { generateNutritionAdvicePrompt } from "@/lib/calorieUtils";
-import { Sparkles, RefreshCw, Bot } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { UserProfile, DailyNutrition, NutritionAdvice, FoodItem } from "@/types";
+import { generateNutritionAdvicePrompt, generateFoodAnalysisPrompt, generateId } from "@/lib/calorieUtils";
+import { Sparkles, RefreshCw, Bot, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface NutritionistAIProps {
   userProfile: UserProfile;
   dailyNutrition: DailyNutrition;
+  onAddFoodItem?: (item: FoodItem) => void;
 }
 
-export function NutritionistAI({ userProfile, dailyNutrition }: NutritionistAIProps) {
+export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: NutritionistAIProps) {
   const [advice, setAdvice] = useState<NutritionAdvice | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string>("");
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [foodInput, setFoodInput] = useState("");
+  const [isAnalyzingFood, setIsAnalyzingFood] = useState(false);
   const { toast } = useToast();
 
   // Load API key from localStorage if available
@@ -114,6 +118,98 @@ export function NutritionistAI({ userProfile, dailyNutrition }: NutritionistAIPr
     }
   };
 
+  const analyzeFoodWithGemini = async () => {
+    if (!foodInput.trim()) {
+      toast({
+        title: "Input required",
+        description: "Please enter a food item to analyze",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!apiKey) {
+      setShowApiKeyInput(true);
+      return;
+    }
+
+    setIsAnalyzingFood(true);
+    try {
+      const prompt = generateFoodAnalysisPrompt(foodInput);
+      
+      // Call Gemini API
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + apiKey, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+          }
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || "Failed to analyze food");
+      }
+
+      // Extract the JSON response from Gemini
+      const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      
+      // Parse the JSON from the response
+      // First, we need to clean the response in case it includes markdown code blocks
+      const jsonString = responseText.replace(/```json|```/g, '').trim();
+      const foodData = JSON.parse(jsonString);
+      
+      // Create a food item
+      const foodItem: FoodItem = {
+        id: generateId(),
+        name: foodData.name,
+        quantity: foodData.quantity,
+        calories: foodData.calories,
+        protein: foodData.protein,
+        carbs: foodData.carbs,
+        fat: foodData.fat,
+        timestamp: new Date(),
+        aiGenerated: true
+      };
+      
+      // Add the food item
+      if (onAddFoodItem) {
+        onAddFoodItem(foodItem);
+        setFoodInput("");
+        toast({
+          title: "Food analyzed",
+          description: `Added ${foodItem.name} (${foodItem.calories} calories)`,
+        });
+      }
+    } catch (error) {
+      console.error("Error analyzing food:", error);
+      toast({
+        title: "Error",
+        description: "Failed to analyze food. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAnalyzingFood(false);
+    }
+  };
+
   // Fetch advice when component mounts or nutrition changes significantly
   useEffect(() => {
     if (dailyNutrition.items.length > 0 && apiKey) {
@@ -193,6 +289,35 @@ export function NutritionistAI({ userProfile, dailyNutrition }: NutritionistAIPr
             <p className="text-sm text-muted-foreground">AI-powered guidance</p>
           </div>
         </div>
+        
+        {onAddFoodItem && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Analyze food with AI</p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter food (e.g., 'large cheese pizza')"
+                value={foodInput}
+                onChange={(e) => setFoodInput(e.target.value)}
+                disabled={isAnalyzingFood}
+              />
+              <Button 
+                variant="secondary" 
+                onClick={analyzeFoodWithGemini}
+                disabled={isAnalyzingFood || !foodInput.trim()}
+              >
+                {isAnalyzingFood ? (
+                  <Sparkles size={16} className="mr-2 animate-pulse" />
+                ) : (
+                  <Search size={16} className="mr-2" />
+                )}
+                {isAnalyzingFood ? "Analyzing..." : "Analyze"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Let AI estimate the calories and nutrients in your food
+            </p>
+          </div>
+        )}
         
         <div className="min-h-[80px] flex items-center">
           {isLoading ? (
