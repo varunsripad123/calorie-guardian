@@ -38,30 +38,57 @@ export const calculateTargetCalories = (maintenanceCalories: number, goal: UserP
 };
 
 // Generate nutrition advice prompt for the Gemini API with nationality and food preferences
-export const generateNutritionAdvicePrompt = (
-  nutrition: DailyNutrition, 
-  profile: UserProfile
-): string => {
-  const calorieStatus = nutrition.totalCalories >= profile.targetCalories ? 'over' : 'under';
-  const caloriePercentage = Math.round((nutrition.totalCalories / profile.targetCalories) * 100);
-  
+export function generateNutritionAdvicePrompt(dailyNutrition: DailyNutrition, userProfile: UserProfile): string {
+  // Calculate what percentage of daily target has been consumed
+  const caloriePercentage = (dailyNutrition.totalCalories / userProfile.targetCalories) * 100;
+  const proteinPercentage = (dailyNutrition.totalProtein / (userProfile.weight * 1.6)) * 100; // Using 1.6g per kg as reference
+  const carbsPercentage = (dailyNutrition.totalCarbs / (userProfile.targetCalories * 0.45 / 4)) * 100; // 45% of calories from carbs
+  const fatPercentage = (dailyNutrition.totalFat / (userProfile.targetCalories * 0.3 / 9)) * 100; // 30% of calories from fat
+
+  // Create a detailed food log
+  const foodLog = dailyNutrition.items.map(item => 
+    `${item.name} (${item.quantity}): ${item.calories} calories, Protein: ${item.protein || 0}g, Carbs: ${item.carbs || 0}g, Fat: ${item.fat || 0}g`
+  ).join('\n');
+
   return `
-    I need nutritional advice for a person with the following profile:
-    - Goal: ${profile.goal === 'lose' ? 'lose weight' : profile.goal === 'gain' ? 'gain weight' : 'maintain weight'}
-    - Target daily calories: ${profile.targetCalories} calories
-    - Maintenance calories: ${profile.maintenanceCalories} calories
-    - Nationality: ${profile.nationality}
-    - Dietary preferences: ${profile.dietaryPreferences.join(', ')}
-    
-    Today's nutrition so far:
-    - Total calories consumed: ${nutrition.totalCalories} calories (${caloriePercentage}% of target)
-    - Protein: ${nutrition.totalProtein}g
-    - Carbs: ${nutrition.totalCarbs}g
-    - Fat: ${nutrition.totalFat}g
-    
-    Based on this information, provide a short, friendly nutrition advice that considers their nationality and food preferences. Use a conversational tone like a supportive personal nutrition coach. Keep it to 2-3 sentences max. Don't use bullet points.
-  `;
-};
+You are a professional nutritionist giving personalized advice to a client. 
+Be friendly, helpful and to-the-point (2-3 short paragraphs maximum).
+
+CLIENT PROFILE:
+- Name: ${userProfile.name}
+- Age: ${userProfile.age}
+- Gender: ${userProfile.gender}
+- Weight: ${userProfile.weight} kg
+- Height: ${userProfile.height} cm
+- Activity Level: ${userProfile.activityLevel}
+- Goal: ${userProfile.goal === 'lose' ? 'Weight Loss' : userProfile.goal === 'gain' ? 'Weight Gain' : 'Weight Maintenance'}
+- Nationality/Background: ${userProfile.nationality}
+- Dietary Preferences: ${userProfile.dietaryPreferences.join(', ')}
+- Maintenance Calories: ${userProfile.maintenanceCalories} calories/day
+- Target Calories: ${userProfile.targetCalories} calories/day
+
+DAILY NUTRITION SO FAR:
+- Total Calories: ${dailyNutrition.totalCalories} (${caloriePercentage.toFixed(1)}% of daily target)
+- Total Protein: ${dailyNutrition.totalProtein}g (${proteinPercentage.toFixed(1)}% of recommended)
+- Total Carbs: ${dailyNutrition.totalCarbs}g (${carbsPercentage.toFixed(1)}% of recommended)
+- Total Fat: ${dailyNutrition.totalFat}g (${fatPercentage.toFixed(1)}% of recommended)
+
+FOOD LOG:
+${foodLog}
+
+Based on this information, provide personalized nutrition advice for the client. Consider:
+1. Whether they are on track with their calories based on their goal (weight loss, gain, or maintenance)
+2. The balance of macronutrients (protein, carbs, fat) and any adjustments needed
+3. Suggestions for future meals based on their dietary preferences and nationality
+4. Any potential nutritional gaps or concerns
+5. Positive reinforcement for good choices they've made
+
+If they've consumed less than 25% of their target calories, focus on meal planning suggestions.
+If they've consumed 25-90% of their target calories, offer balanced advice on completing their day.
+If they've consumed 90-110% of their target calories, provide positive reinforcement and minor adjustments.
+If they've exceeded 110% of their target calories, offer supportive guidance on managing the situation.
+`;
+}
 
 // Format a date to YYYY-MM-DD
 export const formatDate = (date: Date): string => {

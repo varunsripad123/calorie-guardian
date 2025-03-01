@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { UserProfile, DailyNutrition, NutritionAdvice } from "@/types";
 import { generateNutritionAdvicePrompt } from "@/lib/calorieUtils";
 import { Sparkles, RefreshCw, Bot } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface NutritionistAIProps {
   userProfile: UserProfile;
@@ -14,43 +15,99 @@ interface NutritionistAIProps {
 export function NutritionistAI({ userProfile, dailyNutrition }: NutritionistAIProps) {
   const [advice, setAdvice] = useState<NutritionAdvice | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [apiKey, setApiKey] = useState<string>("");
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const { toast } = useToast();
+
+  // Load API key from localStorage if available
+  useEffect(() => {
+    const savedApiKey = localStorage.getItem("geminiApiKey");
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+    } else {
+      setShowApiKeyInput(true);
+    }
+  }, []);
+
+  const saveApiKey = (key: string) => {
+    setApiKey(key);
+    localStorage.setItem("geminiApiKey", key);
+    setShowApiKeyInput(false);
+    toast({
+      title: "API Key Saved",
+      description: "Your Gemini API key has been saved",
+    });
+    // Fetch advice immediately after saving API key
+    if (dailyNutrition.items.length > 0) {
+      fetchNutritionAdvice();
+    }
+  };
 
   const fetchNutritionAdvice = async () => {
+    if (!apiKey) {
+      setShowApiKeyInput(true);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // For demonstration, we're mocking the API call
-      // In a real application, this would be an actual API call to Gemini
       const prompt = generateNutritionAdvicePrompt(dailyNutrition, userProfile);
       
-      // Mock delay to simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call Gemini API
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + apiKey, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+          }
+        })
+      });
+
+      const data = await response.json();
       
-      // Mock response based on calorie intake compared to target
-      let message = "";
-      let type: NutritionAdvice["type"] = "info";
-      
-      const caloriePercentage = (dailyNutrition.totalCalories / userProfile.targetCalories) * 100;
-      
-      if (caloriePercentage > 100) {
-        message = `You've exceeded your target calories for today. Consider focusing on protein-rich foods and vegetables if you get hungry again. A short walk might help too!`;
-        type = "warning";
-      } else if (caloriePercentage > 90) {
-        message = `You're very close to your daily calorie target. You're doing great balancing your nutrients today! Keep it up.`;
-        type = "success";
-      } else if (caloriePercentage > 50) {
-        message = `You're making good progress toward your daily goals. Try to include some more protein in your upcoming meals to help with satiety and muscle maintenance.`;
-        type = "info";
-      } else {
-        message = `You still have plenty of calories left for the day. Focus on nutrient-dense foods like lean proteins, healthy fats, and complex carbs for your upcoming meals.`;
-        type = "info";
+      if (!response.ok) {
+        throw new Error(data.error?.message || "Failed to get nutrition advice");
       }
+
+      // Extract the text response from Gemini
+      const geminiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       
-      setAdvice({ message, type });
+      // Determine advice type based on content
+      let type: NutritionAdvice["type"] = "info";
+      if (geminiResponse.toLowerCase().includes("warning") || geminiResponse.toLowerCase().includes("caution")) {
+        type = "warning";
+      } else if (geminiResponse.toLowerCase().includes("excellent") || geminiResponse.toLowerCase().includes("great job")) {
+        type = "success";
+      } else if (geminiResponse.toLowerCase().includes("error") || geminiResponse.toLowerCase().includes("problem")) {
+        type = "error";
+      }
+
+      setAdvice({ message: geminiResponse, type });
     } catch (error) {
       console.error("Error fetching nutrition advice:", error);
       setAdvice({
-        message: "I couldn't analyze your nutrition right now. Please try again later.",
+        message: "I couldn't analyze your nutrition right now. Please check your API key or try again later.",
         type: "error"
+      });
+      toast({
+        title: "Error",
+        description: "Failed to get nutrition advice. Please check your API key.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
@@ -59,10 +116,10 @@ export function NutritionistAI({ userProfile, dailyNutrition }: NutritionistAIPr
 
   // Fetch advice when component mounts or nutrition changes significantly
   useEffect(() => {
-    if (dailyNutrition.items.length > 0) {
+    if (dailyNutrition.items.length > 0 && apiKey) {
       fetchNutritionAdvice();
     }
-  }, [dailyNutrition.totalCalories]);
+  }, [dailyNutrition.totalCalories, apiKey]);
 
   const getAdviceCardClass = () => {
     if (!advice) return "border-muted";
@@ -79,6 +136,48 @@ export function NutritionistAI({ userProfile, dailyNutrition }: NutritionistAIPr
         return "border-blue-400/20 bg-blue-50/50 dark:bg-blue-950/20";
     }
   };
+
+  if (showApiKeyInput) {
+    return (
+      <Card className="overflow-hidden transition-all duration-300 animate-fade-in">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Bot size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium">Nutrition Coach</h3>
+              <p className="text-sm text-muted-foreground">AI-powered guidance</p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Please enter your Gemini API key to get personalized nutrition advice.
+            </p>
+            <input 
+              type="password" 
+              placeholder="Enter Gemini API key"
+              className="w-full px-3 py-2 border rounded-md text-sm"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
+            <Button 
+              className="w-full"
+              onClick={() => saveApiKey(apiKey)}
+              disabled={!apiKey}
+            >
+              <Sparkles size={16} className="mr-2" />
+              Save API Key
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              Your API key will be stored locally and never sent to our servers.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card 
@@ -112,18 +211,28 @@ export function NutritionistAI({ userProfile, dailyNutrition }: NutritionistAIPr
           )}
         </div>
         
-        {dailyNutrition.items.length > 0 && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="w-full" 
-            onClick={fetchNutritionAdvice}
-            disabled={isLoading}
+        <div className="flex gap-2">
+          {dailyNutrition.items.length > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex-1" 
+              onClick={fetchNutritionAdvice}
+              disabled={isLoading}
+            >
+              <RefreshCw size={14} className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh advice
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-none"
+            onClick={() => setShowApiKeyInput(true)}
           >
-            <RefreshCw size={14} className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh advice
+            API Key
           </Button>
-        )}
+        </div>
       </CardContent>
     </Card>
   );
