@@ -1,4 +1,3 @@
-
 import { DailyNutrition, FoodItem, UserProfile } from "@/types";
 
 // Calculate maintenance calories using the Mifflin-St Jeor Equation
@@ -36,6 +35,32 @@ export const calculateTargetCalories = (maintenanceCalories: number, goal: UserP
     default:
       return maintenanceCalories;
   }
+};
+
+// Generate nutrition advice prompt for the Gemini API with nationality and food preferences
+export const generateNutritionAdvicePrompt = (
+  nutrition: DailyNutrition, 
+  profile: UserProfile
+): string => {
+  const calorieStatus = nutrition.totalCalories >= profile.targetCalories ? 'over' : 'under';
+  const caloriePercentage = Math.round((nutrition.totalCalories / profile.targetCalories) * 100);
+  
+  return `
+    I need nutritional advice for a person with the following profile:
+    - Goal: ${profile.goal === 'lose' ? 'lose weight' : profile.goal === 'gain' ? 'gain weight' : 'maintain weight'}
+    - Target daily calories: ${profile.targetCalories} calories
+    - Maintenance calories: ${profile.maintenanceCalories} calories
+    - Nationality: ${profile.nationality}
+    - Dietary preferences: ${profile.dietaryPreferences.join(', ')}
+    
+    Today's nutrition so far:
+    - Total calories consumed: ${nutrition.totalCalories} calories (${caloriePercentage}% of target)
+    - Protein: ${nutrition.totalProtein}g
+    - Carbs: ${nutrition.totalCarbs}g
+    - Fat: ${nutrition.totalFat}g
+    
+    Based on this information, provide a short, friendly nutrition advice that considers their nationality and food preferences. Use a conversational tone like a supportive personal nutrition coach. Keep it to 2-3 sentences max. Don't use bullet points.
+  `;
 };
 
 // Format a date to YYYY-MM-DD
@@ -138,31 +163,7 @@ export const generateFoodAnalysisPrompt = (foodDescription: string): string => {
   `;
 };
 
-// Generate a nutrition advice prompt for the Gemini API
-export const generateNutritionAdvicePrompt = (
-  nutrition: DailyNutrition, 
-  profile: UserProfile
-): string => {
-  const calorieStatus = nutrition.totalCalories >= profile.targetCalories ? 'over' : 'under';
-  const caloriePercentage = Math.round((nutrition.totalCalories / profile.targetCalories) * 100);
-  
-  return `
-    I need nutritional advice for a person with the following profile:
-    - Goal: ${profile.goal === 'lose' ? 'lose weight' : profile.goal === 'gain' ? 'gain weight' : 'maintain weight'}
-    - Target daily calories: ${profile.targetCalories} calories
-    - Maintenance calories: ${profile.maintenanceCalories} calories
-    
-    Today's nutrition so far:
-    - Total calories consumed: ${nutrition.totalCalories} calories (${caloriePercentage}% of target)
-    - Protein: ${nutrition.totalProtein}g
-    - Carbs: ${nutrition.totalCarbs}g
-    - Fat: ${nutrition.totalFat}g
-    
-    Based on this information, provide a short, friendly nutrition advice. Use a conversational tone like a supportive personal nutrition coach. Keep it to 2-3 sentences max. Don't use bullet points.
-  `;
-};
-
-// Generate random ID
+// Generate a random ID
 export const generateId = (): string => {
   return Math.random().toString(36).substring(2, 15);
 };

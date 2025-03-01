@@ -28,6 +28,8 @@ export interface UserProfile {
   gender: 'male' | 'female' | 'other';
   activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very active';
   goal: 'lose' | 'maintain' | 'gain';
+  nationality: string;
+  dietaryPreferences: string[];
   maintenanceCalories: number;
   targetCalories: number;
 }
