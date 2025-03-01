@@ -25,7 +25,7 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
 
   // Load API key from localStorage if available
   useEffect(() => {
-    const savedApiKey = localStorage.getItem("geminiApiKey");
+    const savedApiKey = localStorage.getItem("openaiApiKey");
     if (savedApiKey) {
       setApiKey(savedApiKey);
     } else {
@@ -35,11 +35,11 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
 
   const saveApiKey = (key: string) => {
     setApiKey(key);
-    localStorage.setItem("geminiApiKey", key);
+    localStorage.setItem("openaiApiKey", key);
     setShowApiKeyInput(false);
     toast({
       title: "API Key Saved",
-      description: "Your Gemini API key has been saved",
+      description: "Your OpenAI API key has been saved",
     });
     // Fetch advice immediately after saving API key
     if (dailyNutrition.items.length > 0) {
@@ -57,28 +57,27 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
     try {
       const prompt = generateNutritionAdvicePrompt(dailyNutrition, userProfile);
       
-      // Call Gemini API
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + apiKey, {
+      // Call OpenAI API
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          contents: [
+          model: "gpt-4o-mini",
+          messages: [
             {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
+              role: "system",
+              content: "You are a professional nutritionist giving personalized advice to a client."
+            },
+            {
+              role: "user",
+              content: prompt
             }
           ],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          }
+          temperature: 0.7,
+          max_tokens: 500
         })
       });
 
@@ -88,20 +87,20 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
         throw new Error(data.error?.message || "Failed to get nutrition advice");
       }
 
-      // Extract the text response from Gemini
-      const geminiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      // Extract the text response from OpenAI
+      const openaiResponse = data.choices?.[0]?.message?.content || "";
       
       // Determine advice type based on content
       let type: NutritionAdvice["type"] = "info";
-      if (geminiResponse.toLowerCase().includes("warning") || geminiResponse.toLowerCase().includes("caution")) {
+      if (openaiResponse.toLowerCase().includes("warning") || openaiResponse.toLowerCase().includes("caution")) {
         type = "warning";
-      } else if (geminiResponse.toLowerCase().includes("excellent") || geminiResponse.toLowerCase().includes("great job")) {
+      } else if (openaiResponse.toLowerCase().includes("excellent") || openaiResponse.toLowerCase().includes("great job")) {
         type = "success";
-      } else if (geminiResponse.toLowerCase().includes("error") || geminiResponse.toLowerCase().includes("problem")) {
+      } else if (openaiResponse.toLowerCase().includes("error") || openaiResponse.toLowerCase().includes("problem")) {
         type = "error";
       }
 
-      setAdvice({ message: geminiResponse, type });
+      setAdvice({ message: openaiResponse, type });
     } catch (error) {
       console.error("Error fetching nutrition advice:", error);
       setAdvice({
@@ -118,7 +117,7 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
     }
   };
 
-  const analyzeFoodWithGemini = async () => {
+  const analyzeFoodWithOpenAI = async () => {
     if (!foodInput.trim()) {
       toast({
         title: "Input required",
@@ -137,28 +136,27 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
     try {
       const prompt = generateFoodAnalysisPrompt(foodInput);
       
-      // Call Gemini API
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + apiKey, {
+      // Call OpenAI API
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          contents: [
+          model: "gpt-4o-mini",
+          messages: [
             {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
+              role: "system",
+              content: "You are a nutrition expert that analyzes food items and provides accurate nutrition information in JSON format."
+            },
+            {
+              role: "user",
+              content: prompt
             }
           ],
-          generationConfig: {
-            temperature: 0.2,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          }
+          temperature: 0.2,
+          max_tokens: 500
         })
       });
 
@@ -168,8 +166,8 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
         throw new Error(data.error?.message || "Failed to analyze food");
       }
 
-      // Extract the JSON response from Gemini
-      const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      // Extract the JSON response from OpenAI
+      const responseText = data.choices?.[0]?.message?.content || "";
       
       // Parse the JSON from the response
       // First, we need to clean the response in case it includes markdown code blocks
@@ -249,11 +247,11 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
           
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Please enter your Gemini API key to get personalized nutrition advice.
+              Please enter your OpenAI API key to get personalized nutrition advice.
             </p>
             <input 
               type="password" 
-              placeholder="Enter Gemini API key"
+              placeholder="Enter OpenAI API key"
               className="w-full px-3 py-2 border rounded-md text-sm"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
@@ -302,7 +300,7 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
               />
               <Button 
                 variant="secondary" 
-                onClick={analyzeFoodWithGemini}
+                onClick={analyzeFoodWithOpenAI}
                 disabled={isAnalyzingFood || !foodInput.trim()}
               >
                 {isAnalyzingFood ? (
