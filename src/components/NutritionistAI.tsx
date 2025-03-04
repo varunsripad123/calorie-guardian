@@ -4,9 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserProfile, DailyNutrition, NutritionAdvice, FoodItem } from "@/types";
-import { generateNutritionAdvicePrompt, generateFoodAnalysisPrompt, generateId } from "@/lib/calorieUtils";
-import { Sparkles, RefreshCw, Bot, Search } from "lucide-react";
+import { generateId } from "@/lib/calorieUtils";
+import { Sparkles, RefreshCw, Bot, Search, LogIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/lib/constants";
 
 interface NutritionistAIProps {
   userProfile: UserProfile;
@@ -17,67 +18,64 @@ interface NutritionistAIProps {
 export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: NutritionistAIProps) {
   const [advice, setAdvice] = useState<NutritionAdvice | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKey, setApiKey] = useState<string>("");
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [foodInput, setFoodInput] = useState("");
   const [isAnalyzingFood, setIsAnalyzingFood] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { toast } = useToast();
 
-  // Load API key from localStorage if available
+  // Check authentication status
   useEffect(() => {
-    const savedApiKey = localStorage.getItem("openaiApiKey");
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-    } else {
-      setShowApiKeyInput(true);
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      setIsAuthenticated(true);
+      // Verify token validity by making a request to the backend
+      verifyAuthentication(token);
     }
   }, []);
 
-  const saveApiKey = (key: string) => {
-    setApiKey(key);
-    localStorage.setItem("openaiApiKey", key);
-    setShowApiKeyInput(false);
-    toast({
-      title: "API Key Saved",
-      description: "Your OpenAI API key has been saved",
-    });
-    // Fetch advice immediately after saving API key
-    if (dailyNutrition.items.length > 0) {
-      fetchNutritionAdvice();
+  // Verify if the stored token is valid
+  const verifyAuthentication = async (token: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        // If token is invalid, reset authentication
+        setIsAuthenticated(false);
+        localStorage.removeItem("authToken");
+      }
+    } catch (error) {
+      console.error("Error verifying authentication:", error);
+      setIsAuthenticated(false);
     }
   };
 
   const fetchNutritionAdvice = async () => {
-    if (!apiKey) {
-      setShowApiKeyInput(true);
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to use this feature",
+        variant: "destructive"
+      });
       return;
     }
 
     setIsLoading(true);
     try {
-      const prompt = generateNutritionAdvicePrompt(dailyNutrition, userProfile);
+      const token = localStorage.getItem("authToken");
       
-      // Call OpenAI API
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch(`${API_BASE_URL}/openai/nutrition-advice`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are a professional nutritionist giving personalized advice to a client."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 500
+          date: new Date().toISOString().split('T')[0]
         })
       });
 
@@ -87,29 +85,16 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
         throw new Error(data.error?.message || "Failed to get nutrition advice");
       }
 
-      // Extract the text response from OpenAI
-      const openaiResponse = data.choices?.[0]?.message?.content || "";
-      
-      // Determine advice type based on content
-      let type: NutritionAdvice["type"] = "info";
-      if (openaiResponse.toLowerCase().includes("warning") || openaiResponse.toLowerCase().includes("caution")) {
-        type = "warning";
-      } else if (openaiResponse.toLowerCase().includes("excellent") || openaiResponse.toLowerCase().includes("great job")) {
-        type = "success";
-      } else if (openaiResponse.toLowerCase().includes("error") || openaiResponse.toLowerCase().includes("problem")) {
-        type = "error";
-      }
-
-      setAdvice({ message: openaiResponse, type });
+      setAdvice(data.advice);
     } catch (error) {
       console.error("Error fetching nutrition advice:", error);
       setAdvice({
-        message: "I couldn't analyze your nutrition right now. Please check your API key or try again later.",
+        message: "I couldn't analyze your nutrition right now. Please try again or check if our server is experiencing issues.",
         type: "error"
       });
       toast({
         title: "Error",
-        description: "Failed to get nutrition advice. Please check your API key.",
+        description: "Failed to get nutrition advice. Please try again later.",
         variant: "destructive"
       });
     } finally {
@@ -117,7 +102,7 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
     }
   };
 
-  const analyzeFoodWithOpenAI = async () => {
+  const analyzeFoodWithAI = async () => {
     if (!foodInput.trim()) {
       toast({
         title: "Input required",
@@ -127,36 +112,27 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
       return;
     }
 
-    if (!apiKey) {
-      setShowApiKeyInput(true);
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to use this feature",
+        variant: "destructive"
+      });
       return;
     }
 
     setIsAnalyzingFood(true);
     try {
-      const prompt = generateFoodAnalysisPrompt(foodInput);
+      const token = localStorage.getItem("authToken");
       
-      // Call OpenAI API
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch(`${API_BASE_URL}/openai/analyze-food`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are a nutrition expert that analyzes food items and provides accurate nutrition information in JSON format."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          temperature: 0.2,
-          max_tokens: 500
+          foodDescription: foodInput
         })
       });
 
@@ -165,24 +141,16 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
       if (!response.ok) {
         throw new Error(data.error?.message || "Failed to analyze food");
       }
-
-      // Extract the JSON response from OpenAI
-      const responseText = data.choices?.[0]?.message?.content || "";
-      
-      // Parse the JSON from the response
-      // First, we need to clean the response in case it includes markdown code blocks
-      const jsonString = responseText.replace(/```json|```/g, '').trim();
-      const foodData = JSON.parse(jsonString);
       
       // Create a food item
       const foodItem: FoodItem = {
         id: generateId(),
-        name: foodData.name,
-        quantity: foodData.quantity,
-        calories: foodData.calories,
-        protein: foodData.protein,
-        carbs: foodData.carbs,
-        fat: foodData.fat,
+        name: data.food.name,
+        quantity: data.food.quantity,
+        calories: data.food.calories,
+        protein: data.food.protein,
+        carbs: data.food.carbs,
+        fat: data.food.fat,
         timestamp: new Date(),
         aiGenerated: true
       };
@@ -200,7 +168,7 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
       console.error("Error analyzing food:", error);
       toast({
         title: "Error",
-        description: "Failed to analyze food. Please try again.",
+        description: "Failed to analyze food. Please try again later.",
         variant: "destructive"
       });
     } finally {
@@ -208,12 +176,21 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
     }
   };
 
-  // Fetch advice when component mounts or nutrition changes significantly
+  // Fetch advice when component mounts or nutrition changes
   useEffect(() => {
-    if (dailyNutrition.items.length > 0 && apiKey) {
-      fetchNutritionAdvice();
+    if (isAuthenticated) {
+      if (dailyNutrition.items.length > 0) {
+        // Get advice when food items exist
+        fetchNutritionAdvice();
+      } else {
+        // Show a default message prompting user to add food
+        setAdvice({
+          message: `Based on your profile (${userProfile.gender}, ${userProfile.age} years, ${userProfile.weight}kg, ${userProfile.height}cm) with a ${userProfile.goal} goal, you should aim for around ${userProfile.targetCalories} calories today. Try adding some food items to get personalized recommendations.`,
+          type: "info"
+        });
+      }
     }
-  }, [dailyNutrition.totalCalories, apiKey]);
+  }, [dailyNutrition.items.length, dailyNutrition.totalCalories, isAuthenticated]);
 
   const getAdviceCardClass = () => {
     if (!advice) return "border-muted";
@@ -231,7 +208,7 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
     }
   };
 
-  if (showApiKeyInput) {
+  if (!isAuthenticated) {
     return (
       <Card className="overflow-hidden transition-all duration-300 animate-fade-in">
         <CardContent className="p-6 space-y-4">
@@ -247,25 +224,17 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
           
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Please enter your OpenAI API key to get personalized nutrition advice.
+              Please sign in to access the AI nutrition coach features.
             </p>
-            <input 
-              type="password" 
-              placeholder="Enter OpenAI API key"
-              className="w-full px-3 py-2 border rounded-md text-sm"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
             <Button 
               className="w-full"
-              onClick={() => saveApiKey(apiKey)}
-              disabled={!apiKey}
+              onClick={() => window.location.href = "/login"}
             >
-              <Sparkles size={16} className="mr-2" />
-              Save API Key
+              <LogIn size={16} className="mr-2" />
+              Sign In
             </Button>
             <p className="text-xs text-muted-foreground mt-2">
-              Your API key will be stored locally and never sent to our servers.
+              After signing up, you can start using AI features right away with our shared API key. You can also set your own OpenAI API key in your profile settings for enhanced privacy.
             </p>
           </div>
         </CardContent>
@@ -300,7 +269,7 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
               />
               <Button 
                 variant="secondary" 
-                onClick={analyzeFoodWithOpenAI}
+                onClick={analyzeFoodWithAI}
                 disabled={isAnalyzingFood || !foodInput.trim()}
               >
                 {isAnalyzingFood ? (
@@ -351,9 +320,9 @@ export function NutritionistAI({ userProfile, dailyNutrition, onAddFoodItem }: N
             variant="outline"
             size="sm"
             className="flex-none"
-            onClick={() => setShowApiKeyInput(true)}
+            onClick={() => window.location.href = "/profile"}
           >
-            API Key
+            Settings
           </Button>
         </div>
       </CardContent>

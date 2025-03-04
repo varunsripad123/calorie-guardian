@@ -9,9 +9,13 @@ import { DailyNutrition, FoodItem, UserProfile } from "@/types";
 import { addFoodItem, removeFoodItem, initializeDailyNutrition } from "@/lib/calorieUtils";
 import { useToast } from "@/hooks/use-toast";
 
-export function CalorieTracker() {
-  const [showProfileForm, setShowProfileForm] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+interface CalorieTrackerProps {
+  initialUserProfile: UserProfile | null;
+}
+
+export function CalorieTracker({ initialUserProfile }: CalorieTrackerProps) {
+  const [showProfileForm, setShowProfileForm] = useState(!initialUserProfile);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(initialUserProfile);
   const [dailyNutrition, setDailyNutrition] = useState<DailyNutrition>(initializeDailyNutrition());
   const { toast } = useToast();
   

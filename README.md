@@ -1,46 +1,98 @@
-![image](https://github.com/user-attachments/assets/a609bee8-f588-466d-9d40-2a0d89b59946)
+# Calorie Guardian
 
+![Calorie Guardian App](https://github.com/user-attachments/assets/a609bee8-f588-466d-9d40-2a0d89b59946)
 
-**Use your preferred IDE**
+A comprehensive calorie and nutrition tracking application powered by AI to help you maintain a healthy lifestyle.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Features
 
-Follow these steps:
+- 🍔 **Food Tracking**: Log your meals and track your daily nutrition
+- 🤖 **AI-Powered Analysis**: Get accurate nutrition information for any food using OpenAI
+- 📊 **Nutrition Insights**: Visualize your nutritional intake with charts and summaries
+- 🍽️ **Meal Planning**: Generate personalized meal plans based on your goals
+- 👨‍🍳 **Recipe Generation**: Create recipes from ingredients you have on hand
+- 👤 **User Profiles**: Personalized experience based on your health goals
+
+## Project Structure
+
+This project consists of two main parts:
+
+1. **Frontend**: React application with TypeScript and Tailwind CSS
+2. **Backend**: Node.js API server with Express, MongoDB, and OpenAI integration
+
+## Technologies Used
+
+### Frontend
+- **Vite**: Fast build tool and development server
+- **React**: UI library
+- **TypeScript**: Type-safe JavaScript
+- **Tailwind CSS**: Utility-first CSS framework
+- **shadcn/ui**: Reusable component library
+- **Recharts**: Charting library for data visualization
+
+### Backend
+- **Node.js** with **Express.js**: Server framework
+- **TypeScript**: Type-safe JavaScript
+- **MongoDB** with **Mongoose**: Database
+- **OpenAI API**: AI-powered food analysis and nutrition advice
+- **JWT**: Authentication
+
+## Getting Started
+
+### Prerequisites
+- Node.js (v18+)
+- MongoDB database
+- OpenAI API key
+
+### Frontend Setup
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone https://github.com/varunsripad123/calorie-guardian.git
 
-# Step 2: Navigate to the project directory.
+# Navigate to the project directory
 cd calorie-guardian
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Backend Setup
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+# Navigate to the server directory
+cd server
 
-**Use GitHub Codespaces**
+# Install dependencies
+npm install
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your MongoDB URI, JWT secret, and OpenAI API key
 
-## What technologies are used for this project?
+# Start the development server
+npm run dev
+```
 
-This project is built with .
+## Development
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Frontend
+- **Development server**: `npm run dev`
+- **Build**: `npm run build`
+- **Lint**: `npm run lint`
+
+### Backend
+- **Development server**: `npm run dev`
+- **Build**: `npm run build`
+- **Start production server**: `npm start`
+
+## API Endpoints
+
+The backend provides various API endpoints for user authentication, food tracking, and AI features. See the [Server README](./server/README.md) for full API documentation.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
